@@ -4,12 +4,8 @@ flow_login.py — Full Login Flow
 The only file you run for login.
 Also imported by every direct booking flow as Step 1.
 
-Run standalone:
-    python login/flow_login.py
-
-Import in booking flows:
-    from login.flow_login import run_login
-    run_login(driver=driver)
+Run standalone:   python -m login.flow_login
+Import in flows:  from login.flow_login import run_login
 """
 
 from core.browser import create_driver, get_base_url, get_credentials, close_driver
@@ -20,19 +16,6 @@ init(autoreset=True)
 
 
 def run_login(driver=None):
-    """
-    Runs full login flow end to end.
-
-    Two ways to call:
-        1. Standalone — no driver passed, creates its own
-           run_login()
-
-        2. From booking flow — pass existing driver, browser stays open
-           run_login(driver=driver)
-
-    Returns driver so booking flow can continue on same session.
-    """
-
     if driver is None:
         driver = create_driver()
 
@@ -49,13 +32,10 @@ def run_login(driver=None):
         # Step 2 — Fill username and password
         login.enter_credentials(username, password)
 
-        # Step 3 — Manual captcha pause
+        # Step 3 — Watch captcha field, auto-clicks Sign In when answered
         login.solve_captcha()
 
-        # Step 4 — Click login button
-        login.submit()
-
-        # Step 5 — Confirm dashboard loaded
+        # Step 4 — Confirm dashboard loaded
         login.verify_success()
 
         print(Fore.GREEN + "[FLOW] ── Login Flow Completed ✓ ──\n")

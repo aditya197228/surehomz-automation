@@ -9,7 +9,8 @@ from selenium.webdriver.common.by import By
 
 
 class LoginLocators:
-    USERNAME    = (By.ID, "UserName")
-    PASSWORD    = (By.ID, "Password")
-    LOGIN_BTN   = (By.ID, "btnlogin")
-    ERROR_MSG   = (By.CLASS_NAME, "validation-summary-errors")
+    USERNAME      = (By.ID, "UserName")
+    PASSWORD      = (By.ID, "Password")
+    LOGIN_BTN     = (By.ID, "btnlogin")
+    CAPTCHA_INPUT = (By.ID, "CaptchaResult")   # ← added
+    ERROR_MSG     = (By.CLASS_NAME, "validation-summary-errors")

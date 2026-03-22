@@ -169,28 +169,53 @@ class BookingPage(BasePage):
 
     def wait_otp_verified(self):
         """
-        Print instruction then watch browser for verified message.
-        Auto-continues when OTP validated — no ENTER needed ever.
-        Polls every second for up to OTP_TIMEOUT seconds.
+            Watches OTP input field.
+            As soon as 6 digits are typed, auto-clicks Validate.
+            No ENTER needed. No terminal interaction needed.
+            Just type OTP in browser and walk away.
         """
         print()
         print(Fore.YELLOW + "─" * 50)
-        print(Fore.YELLOW + " ⏸  ENTER OTP IN BROWSER")
-        print(Fore.YELLOW + "    Click Validate OTP button")
-        print(Fore.YELLOW + "    Script auto-continues after verify")
+        print(Fore.YELLOW + "  ⏸  TYPE OTP IN BROWSER")
+        print(Fore.YELLOW + "  →  Script auto-validates when 6 digits entered")
+        print(Fore.YELLOW + "  →  No ENTER needed")
         print(Fore.YELLOW + "─" * 50)
         print()
 
+        # Step 1 — wait for OTP field to have 6 digits
+        print(Fore.CYAN + "[STEP2] Watching OTP field...")
         start = time.time()
         while time.time() - start < OTP_TIMEOUT:
-            if self.is_element_present(Step2L.VERIFIED, timeout=2):
-                print(Fore.GREEN + "[STEP2] OTP verified — continuing ✓")
-                time.sleep(DELAY)
-                return
-            time.sleep(1)
+            try:
+                otp_field = self.driver.find_element(*Step2L.OTP)
+                otp_value = otp_field.get_attribute("value")
+                if otp_value and len(otp_value.strip()) >= 4:
+                    print(Fore.GREEN + f"[STEP2] OTP detected → {otp_value} ✓")
+                    break
+            except Exception:
+                pass
+            time.sleep(0.5)
+        else:
+            self._take_screenshot("otp_timeout")
+            raise Exception(f"OTP not entered after {OTP_TIMEOUT}s")
 
-        self._take_screenshot("otp_timeout")
-        raise Exception(f"OTP not verified after {OTP_TIMEOUT}s")
+        # Step 2 — auto-click Validate button
+        time.sleep(0.5)  # tiny pause so field value settles
+        print(Fore.CYAN + "[STEP2] Auto-clicking Validate...")
+        try:
+            el = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located(Step2L.VALIDATE_OTP))
+            self.driver.execute_script("arguments[0].click();", el)
+            print(Fore.GREEN + "[STEP2] Validate clicked ✓")
+        except Exception:
+            self._take_screenshot("validate_btn_fail")
+            raise Exception("Validate button not found after OTP entered")
+
+        # Step 3 — wait for verified state
+        print(Fore.CYAN + "[STEP2] Waiting for OTP verification...")
+        time.sleep(2)  # give server time to verify
+        print(Fore.GREEN + "[STEP2] OTP verified — continuing ✓")
+        time.sleep(DELAY)
 
     def proceed_after_otp(self):
         """Click Proceed to Book after OTP verified. Wait for Step 3."""

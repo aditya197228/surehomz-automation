@@ -9,74 +9,70 @@ Future scope  : Developer, Admin modules (same login structure)
 """
 
 from core.base_page import BasePage
-from core.manual_pause import manual_pause
 from login.locators import LoginLocators
 from colorama import Fore, init
+import time
+import re
 
 init(autoreset=True)
 
 
 class LoginPage(BasePage):
-    """
-    Handles all login page interactions.
-
-    Usage:
-        login = LoginPage(driver)
-        login.open(base_url)
-        login.enter_credentials(username, password)
-        login.solve_captcha()
-        login.submit()
-        login.verify_success()
-    """
 
     def open(self, base_url):
-        """
-        Navigate to login page and confirm it loaded.
-        Waits for username field to be visible before proceeding.
-        """
+        """Navigate to login page. Wait for username field."""
         self.go_to(base_url)
         self.wait_for_element(LoginLocators.USERNAME, label="Username field")
         print(Fore.GREEN + "[LOGIN] Login page loaded ✓")
 
-
     def enter_credentials(self, username, password):
-        """
-        Fill username and password from .env credentials.
-        Fields are cleared before typing to avoid leftover values.
-        """
+        """Fill username and password from .env."""
         self.fill(LoginLocators.USERNAME, username, label="Username")
         self.fill(LoginLocators.PASSWORD, password, label="Password")
 
-
     def solve_captcha(self):
         """
-        Pauses script for human to solve captcha manually.
-        Script resumes only after ENTER is pressed.
+        Watches CaptchaResult field every 0.5s.
+        You type the answer — script detects digits typed,
+        then auto-clicks Sign In. No ENTER needed.
+        Same pattern as OTP in booking flow.
         """
-        manual_pause("Solve the captcha in the browser then press ENTER")
+        print()
+        print(Fore.YELLOW + "─" * 50)
+        print(Fore.YELLOW + "  ⏸  SOLVE CAPTCHA IN BROWSER")
+        print(Fore.YELLOW + "  →  Type the answer in the field")
+        print(Fore.YELLOW + "  →  Script auto-clicks Sign In")
+        print(Fore.YELLOW + "─" * 50)
+        print()
 
+        print(Fore.CYAN + "[CAPTCHA] Watching answer field...")
+        start = time.time()
+        while time.time() - start < 120:
+            try:
+                field = self.driver.find_element(*LoginLocators.CAPTCHA_INPUT)
+                value = field.get_attribute("value")
+                if value and re.match(r'^\d+$', value.strip()):
+                    print(Fore.GREEN + f"[CAPTCHA] Answer detected → {value} ✓")
+                    break
+            except Exception:
+                pass
+            time.sleep(0.5)
+        else:
+            self._take_screenshot("captcha_timeout")
+            raise Exception("Captcha not answered within 120s")
 
-    def submit(self):
-        """Click the login button to submit the form."""
-        self.click(LoginLocators.LOGIN_BTN, label="Login Button")
-
+        # tiny pause so value settles then auto-click Sign In
+        time.sleep(0.5)
+        print(Fore.CYAN + "[CAPTCHA] Auto-clicking Sign In...")
+        btn = self.driver.find_element(*LoginLocators.LOGIN_BTN)
+        self.driver.execute_script("arguments[0].click();", btn)
+        print(Fore.GREEN + "[CAPTCHA] Sign In clicked ✓")
 
     def verify_success(self):
-        """
-        Confirms login was successful by checking URL contains 'dashboard'.
-        Raises exception if dashboard is not reached — flow stops immediately.
-        """
+        """Confirm redirect to cp-dashboard after login."""
         self.wait_for_url_contains("cp-dashboard", label="cp-dashboard")
         print(Fore.GREEN + "[LOGIN] Login successful ✓")
 
-
     def is_login_failed(self):
-        """
-        Returns True if error message is visible after submit.
-        Use to handle wrong credentials gracefully.
-
-        Usage:
-            if login.is_login_failed():
-                excel.write_result(1, "FAIL", "Invalid credentials")
-        """
+        """Returns True if error message visible. Used for graceful failure."""
         return self.is_element_present(LoginLocators.ERROR_MSG, timeout=3)
